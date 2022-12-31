@@ -6,23 +6,20 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def main():
-    data = pd.read_csv(os.path.join(PROJECT_ROOT, 'data', 'edges.csv')).sort_values('artist_a')
-
-    edgelist = dict()
-
-    def evaluate_row(row):
-        k = frozenset([row['artist_a'], row['artist_b']])
-        if k in edgelist:
-            edgelist[k] += 1
-        else:
-            edgelist[k] = 1
-
-    data.apply(evaluate_row, axis=1)
+    data = pd.read_csv(os.path.join(PROJECT_ROOT, 'data', 'edges.csv'))
     g = nx.Graph()
 
-    for key, value in edgelist.items():
-        a, b = [vtx for vtx in iter(key)]
-        g.add_edge(a, b, weight=value)
+    def construct_graph(row):
+        a = row['artist_a']
+        b = row['artist_b']
+        if (a, b) in g.edges:
+            g.edges[(a, b)]['weight'] += 1
+        else:
+            g.add_edge(a, b, weight=1)
+
+    print('constructing graph...')
+    data.apply(construct_graph, axis=1)
+    print('done!')
 
     def select_next_artist(artist: str, theta: float):
         pass
