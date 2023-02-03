@@ -31,17 +31,22 @@ def path_lengths(g: Graph, focal_vertex: str, order=1):
 
 
 def compute_single_path_length(graph, path):
-    def path_recursive(idx, length):
-        if idx == len(path) - 1:
+    path_iter = iter(path)
+
+    def path_recursive(a, length):
+        try:
+            b = next(path_iter)
+            length += graph[a, b]
+            return path_recursive(b, length)
+        except StopIteration:
             return length
-        length += graph[path[idx], path[idx+1]]
-        return path_recursive(idx+1, length)
-    return path_recursive(0, 0)
+
+    return path_recursive(next(path_iter), 0)
 
 
 def scale(weight: int):
     # TODO: experiment with this
-    return 1/weight
+    return 1 / weight
 
 
 def main():
