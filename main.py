@@ -6,10 +6,6 @@ from igraph import Graph
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
-# def get_all_artist_ids(df):
-#     return sorted(list(set(np.append(df['artist_a'].unique(), df['artist_b'].unique()))))
-
-
 def convert_to_weighted_edgelist(df: pd.DataFrame):
     # edges must be presorted in ascending order (s.t. artist_a < artist_b)
     mx = np.sort(df[['artist_a', 'artist_b']].to_numpy(), axis=1)
@@ -17,22 +13,33 @@ def convert_to_weighted_edgelist(df: pd.DataFrame):
     return np.c_[unique, counts]
 
 
-# TODO: decide if we really need to do this, given that computing for the entire graph is reasonably fast
 def ego_subgraph(g: Graph, vertex_id: int, order: int = 1):
     return g.induced_subgraph(g.neighborhood(vertex_id, order))
 
 
-def path_lengths(g: Graph, focal_vertex_id: int, order=1):
+def path_lengths(g: Graph, artist_id: str, order=1):
     # for each vertex in subgraph, find path length from that vertex to focal_vertex
     # return: {vertex : length}
+    focal_vertex_id = g.vs()['name'].index(artist_id)
     subgraph = ego_subgraph(g, focal_vertex_id, order)
+
+    # find new vertex ID in subgraph
+    focal_vertex_id = subgraph.vs()['name'].index(artist_id)
     shortest_paths = subgraph.get_shortest_paths(focal_vertex_id, weights='weight')
-    res = {subgraph.vs()[path[-1]]['name']: compute_single_path_length(subgraph, path) for path in shortest_paths}
-    res.pop(subgraph.vs()[focal_vertex_id]['name'])
+
+    res = {}
+
+    for path in shortest_paths:
+        length = compute_single_path_length(subgraph, path)
+        idx = subgraph.vs()[path[-1]]['name']
+        res[idx] = length
+    res.pop(artist_id)
     return res
 
 
 # modified softmax
+# TODO guard against overflow
+# TODO normalize?
 def probability(lengths: np.ndarray, theta: float):
     x = np.exp(theta / lengths)
     return x / sum(x)
@@ -57,12 +64,20 @@ def scale(weight: int):
     return 1 / weight
 
 
-def select_next_artist(g: Graph, artist: str, theta: float, subgraph_order: int = 2):
-    artist_vertex_id = g.vs['name'].index(artist)
-    lengths_dict = path_lengths(g, artist_vertex_id, order=subgraph_order)
+# TODO experiment with suitable settings of theta
+def select_next_artist(g: Graph, artist_id: str, theta: float, subgraph_order: int = 2):
+    if subgraph_order > 3:
+        print("max subgraph order is 2 (for now). {} is too large.".format(subgraph_order))
+        subgraph_order = 2
+
+    if theta > 5:  # TODO experiment with this
+        print("max setting for theta is 10 (for now). {} is too large.".format(theta))
+        theta = 5
+
+    lengths_dict = path_lengths(g, artist_id, order=subgraph_order)
     lengths = np.array(list(lengths_dict.values()))
     probs = probability(lengths, theta)
-    return np.random.choice(list(lengths_dict.keys()), p=probs)
+    return str(np.random.choice(list(lengths_dict.keys()), p=probs))
 
 
 def main():
@@ -80,9 +95,11 @@ def main():
     )
     print("done!")
 
-    print("sampling for artist 300 ten times: ...")
+    artist = "417"
     for i in range(10):
-        print(select_next_artist("300", 50))
+        next_artist = select_next_artist(g, artist, 0.5)
+        print(next_artist)
+        artist = next_artist
 
 
 if __name__ == "__main__":
