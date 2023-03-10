@@ -27,13 +27,9 @@ def path_lengths(g: Graph, artist_id: str, order=1):
     focal_vertex_id = subgraph.vs()['name'].index(artist_id)
     shortest_paths = subgraph.get_shortest_paths(focal_vertex_id, weights='weight')
 
-    res = {}
-
-    for path in shortest_paths:
-        length = compute_single_path_length(subgraph, path)
-        idx = subgraph.vs()[path[-1]]['name']
-        res[idx] = length
+    res = {subgraph.vs()[path[-1]]['name']: compute_single_path_length(subgraph, path) for path in shortest_paths}
     res.pop(artist_id)
+
     return res
 
 
@@ -97,7 +93,7 @@ def main():
 
     artist = "417"
     for i in range(10):
-        next_artist = select_next_artist(g, artist, 0.5)
+        next_artist = select_next_artist(g, artist, 0.9)
         print(next_artist)
         artist = next_artist
 
