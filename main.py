@@ -32,7 +32,7 @@ def path_lengths(g: Graph, artist_id: str, order=1):
     res = {subgraph.vs()[path[-1]]['name']: compute_single_path_length(subgraph, path) for path in shortest_paths}
 
     # artificially inflate path length to last visited vertex to discourage looping
-    if last_artist_id and PREVENT_LOOPS:
+    if last_artist_id and last_artist_id in res.keys() and PREVENT_LOOPS:
         res[last_artist_id] = max(res.values()) + 1
 
     res.pop(artist_id)
