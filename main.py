@@ -5,7 +5,7 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 def main():
     data_path = os.path.join(PROJECT_ROOT, 'data', 'edges.csv')
-    network = ArtistNetwork(data_path)
+    network = ArtistNetwork(data_path, use_ranking=True)
 
     # TODO faster?? can we not convert this on the fly?
     # TODO convert weights here or later?

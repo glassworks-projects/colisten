@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
 from igraph import Graph
+from scipy.stats import rankdata
+
 
 class ArtistNetwork:
-    def __init__(self, data_path: str, prevent_loops=True):
+    def __init__(self, data_path: str, prevent_loops=True, use_ranking=False):
         # TODO: guard against malformed data path
         self.data = pd.read_csv(data_path)
         print("converting data to weighted edgelist...")
@@ -15,7 +17,8 @@ class ArtistNetwork:
             weights=True
         )
         print("done!")
-        self.PREVENT_LOOPS = prevent_loops
+        self.prevent_loops = prevent_loops
+        self.use_ranking = use_ranking
         self.last_artist_id = None
 
     @staticmethod
@@ -65,12 +68,24 @@ class ArtistNetwork:
         focal_vertex_id = subgraph.vs()['name'].index(artist_id)
         shortest_paths = subgraph.get_shortest_paths(focal_vertex_id, weights='weight')
 
-        res = {subgraph.vs()[path[-1]]['name']: self.__compute_single_path_length(subgraph, path) for path in
-               shortest_paths}
+        artist_ids = []
+        lengths = []
+        for path in shortest_paths:
+            artist_ids.append(subgraph.vs()[path[-1]]['name'])
+            lengths.append(self.__compute_single_path_length(subgraph, path))
 
-        # artificially inflate path length to last visited vertex to discourage looping
-        if self.last_artist_id and self.last_artist_id in res.keys() and self.PREVENT_LOOPS:
-            res[self.last_artist_id] = max(res.values()) + 1
+        if self.use_ranking:
+            lengths = rankdata(lengths)
+
+        res = dict(zip(artist_ids, lengths))
+
+        # artificially inflate path length (or rank) to last visited vertex to discourage looping
+        if self.last_artist_id and self.last_artist_id in res.keys() and self.prevent_loops:
+            if self.use_ranking:
+                # note: this messes up ranking, watch for side effects
+                res[self.last_artist_id] = len(res.values())
+            else:
+                res[self.last_artist_id] = max(res.values()) + 1
 
         res.pop(artist_id)
         return res
@@ -80,21 +95,21 @@ class ArtistNetwork:
         return g.induced_subgraph(g.neighborhood(vertex_id, order))
 
     @staticmethod
-    def __compute_single_path_length(graph, path):
+    def __compute_single_path_length(g: Graph, path):
         path_iter = iter(path)
 
         def path_recursive(a, length):
             try:
                 b = next(path_iter)
-                length += graph[a, b]
+                length += g[a, b]
                 return path_recursive(b, length)
             except StopIteration:
                 return length
 
         return path_recursive(next(path_iter), 0)
 
-    def allow_loops(self):
-        self.PREVENT_LOOPS = False
+    def set_loop_prevention(self, prevent_loops: bool) -> None:
+        self.prevent_loops = prevent_loops
 
-    def prevent_loops(self):
-        self.PREVENT_LOOPS = True
+    def set_use_ranking(self, use_ranking: bool) -> None:
+        self.use_ranking = use_ranking
